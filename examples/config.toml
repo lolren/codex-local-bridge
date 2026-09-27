@@ -1,0 +1,18 @@
+# Replace model and the absolute catalog path before use.
+model = "YOUR_SERVED_MODEL_ID"
+model_provider = "local-bridge"
+model_context_window = 32768
+model_catalog_json = "/ABSOLUTE/PATH/TO/models.json"
+model_supports_reasoning_summaries = false
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[model_providers.local-bridge]
+name = "Local model via native tool adapter"
+base_url = "http://127.0.0.1:18081/v1"
+wire_api = "responses"
+requires_openai_auth = false
+supports_websockets = false
+stream_idle_timeout_ms = 600000
+# Authenticated servers only; export this variable before launching Codex:
+# env_key = "LOCAL_LLM_API_KEY"

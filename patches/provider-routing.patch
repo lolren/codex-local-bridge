@@ -1,0 +1,9 @@
+--- a/config.toml
++++ b/config.toml
+@@ -10,5 +10,5 @@
+ [model_providers.local-bridge]
+ name = "Local model via native tool adapter"
+-base_url = "http://127.0.0.1:8000/v1"
++base_url = "http://127.0.0.1:18081/v1"
+ wire_api = "responses"
+ requires_openai_auth = false

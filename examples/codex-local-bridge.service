@@ -1,0 +1,16 @@
+# Manual template. Replace absolute paths and the upstream URL.
+# The installer generates an exact unit with your interpreter and instance ID.
+[Unit]
+Description=Codex local model native tool adapter
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/ABSOLUTE/PATH/TO/python3 -u /ABSOLUTE/PATH/TO/bridge.py --upstream http://127.0.0.1:8000 --port 18081 --instance-id manual
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+UMask=0077
+
+[Install]
+WantedBy=default.target

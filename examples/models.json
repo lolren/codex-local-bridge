@@ -1,0 +1,28 @@
+{
+  "models": [
+    {
+      "slug": "YOUR_SERVED_MODEL_ID",
+      "display_name": "YOUR_SERVED_MODEL_ID (local)",
+      "description": "Local model with native Codex file editing.",
+      "default_reasoning_level": null,
+      "supported_reasoning_levels": [],
+      "shell_type": "shell_command",
+      "visibility": "list",
+      "supported_in_api": true,
+      "priority": 1,
+      "model_messages": {
+        "instructions_template": "You are a coding agent running in Codex CLI. Follow system, developer, and repository instructions. Use available tools to inspect the project and make requested changes directly. Prefer the native apply_patch tool for creating, updating, and deleting files; use execution tools for reading files and running checks. Verify the result before reporting success. Ask only when essential information is missing."
+      },
+      "support_verbosity": false,
+      "apply_patch_tool_type": "freeform",
+      "web_search_tool_type": "text",
+      "truncation_policy": {
+        "mode": "bytes",
+        "limit": 10000
+      },
+      "context_window": 32768,
+      "max_context_window": 32768,
+      "experimental_supported_tools": []
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+--- a/models.json
++++ b/models.json
+@@ -14,6 +14,7 @@
+         "instructions_template": "You are a coding agent running in Codex CLI. Follow system, developer, and repository instructions. Use available tools to inspect the project and make requested changes directly. Prefer the native apply_patch tool for creating, updating, and deleting files; use execution tools for reading files and running checks. Verify the result before reporting success. Ask only when essential information is missing."
+       },
+       "support_verbosity": false,
++      "apply_patch_tool_type": "freeform",
+       "web_search_tool_type": "text",
+       "truncation_policy": {
+         "mode": "bytes",

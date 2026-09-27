@@ -1,0 +1,5 @@
+# Codex 0.157.1: --profile local loads this file from CODEX_HOME.
+model = "YOUR_SERVED_MODEL_ID"
+model_provider = "local-bridge"
+# Only uncomment if your server accepts it:
+# model_reasoning_effort = "medium"
