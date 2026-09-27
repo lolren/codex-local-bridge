@@ -7,6 +7,7 @@ import json
 import logging
 import os
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from socketserver import TCPServer
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit, urlunsplit
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
@@ -22,6 +23,15 @@ class NoRedirect(HTTPRedirectHandler):
 
 
 UPSTREAM = build_opener(ProxyHandler({}), NoRedirect())
+
+
+class LoopbackServer(ThreadingHTTPServer):
+    def server_bind(self):
+        # HTTPServer normally reverse-resolves its bind address. On macOS that
+        # lookup can stall for tens of seconds; a numeric loopback listener does
+        # not need DNS to serve requests.
+        TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address[:2]
 
 
 def normalize_upstream(value):
@@ -305,7 +315,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
 def make_server(upstream, port=18081, instance_id="manual", timeout=600):
     upstream = normalize_upstream(upstream)
-    server = ThreadingHTTPServer(("127.0.0.1", port), BridgeHandler)
+    server = LoopbackServer(("127.0.0.1", port), BridgeHandler)
     server.upstream = upstream
     server.instance_id = instance_id
     server.upstream_timeout = timeout

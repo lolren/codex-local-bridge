@@ -2,6 +2,7 @@ import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import threading
 import unittest
+from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request
 
@@ -126,6 +127,15 @@ class HttpTests(unittest.TestCase):
 
 
 class UrlTests(unittest.TestCase):
+    def test_listener_startup_does_not_require_reverse_dns(self):
+        with patch("socket.getfqdn", side_effect=AssertionError("unexpected DNS lookup")):
+            server = make_server("http://127.0.0.1:8000", port=0)
+            try:
+                self.assertEqual(server.server_name, "127.0.0.1")
+                self.assertGreater(server.server_port, 0)
+            finally:
+                server.server_close()
+
     def test_normalize(self):
         self.assertEqual(normalize_upstream("http://localhost:8000/v1/"), "http://localhost:8000")
         self.assertEqual(normalize_upstream("https://example.com/prefix/v1"), "https://example.com/prefix")

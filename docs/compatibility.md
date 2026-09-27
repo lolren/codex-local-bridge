@@ -38,7 +38,7 @@ Run:
 python3 -m unittest discover -v
 ```
 
-The 23 tests cover request/history conversion, ordinary-tool preservation, streamed argument reconstruction, completed responses, malformed arguments, real HTTP forwarding, bearer-header forwarding, redirects, invalid requests, installation, safe overwrite refusal and backups, automatic startup, provider/environment selection, instance identity, and the targeted catalog patcher. The two published unified diffs were also applied to their example preimages and verified to reproduce the documented configuration.
+The 24 tests cover request/history conversion, ordinary-tool preservation, streamed argument reconstruction, completed responses, malformed arguments, real HTTP forwarding, bearer-header forwarding, redirects, invalid requests, installation, safe overwrite refusal and backups, automatic startup without reverse-DNS resolution, provider/environment selection, instance identity, and the targeted catalog patcher. The two published unified diffs were also applied to their example preimages and verified to reproduce the documented configuration.
 
 The [CI workflow](../.github/workflows/tests.yml) runs these offline tests on Linux with Python 3.11–3.14 and macOS with Python 3.12. CI uses a mock upstream and fake Codex executable; it does not download model weights, access the maintainer's server, or claim a live macOS/WSL model test. Consult the workflow's actual result for the current commit.
 
