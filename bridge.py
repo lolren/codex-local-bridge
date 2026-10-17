@@ -79,6 +79,8 @@ Example input string:
 Use this tool for file edits; use the shell for reading files and running checks.
 """
 
+LOCAL_TASK_COMPLETION_INSTRUCTION = """For agent tasks, complete the requested work instead of ending with a progress update or a promise to do more. If you say you will inspect, analyze, edit, or test something, carry it out with the available tools in this turn. End only when the work is complete or you can name a specific blocker."""
+
 
 def to_upstream(payload, *, loop_guard=False):
     """Convert tool definitions AND history; never mutate the caller's request."""
@@ -222,10 +224,14 @@ def responses_to_chat(payload, *, loop_guard=False, previous_messages=None):
     """Convert a Codex Responses request to a text-only Chat Completions request."""
     converted, custom_names = to_upstream(payload, loop_guard=loop_guard)
     messages = []
-    if converted.get("instructions") and not previous_messages:
-        messages.append({"role": "system", "content": converted["instructions"]})
     if previous_messages:
         messages.extend(copy.deepcopy(previous_messages))
+    else:
+        instructions = converted.get("instructions")
+        system_parts = [part for part in (instructions, LOCAL_TASK_COMPLETION_INSTRUCTION)
+                        if isinstance(part, str) and part.strip()]
+        if system_parts:
+            messages.append({"role": "system", "content": "\n\n".join(system_parts)})
     messages.extend(_responses_input_to_chat(converted.get("input", [])))
     request = {
         "model": converted.get("model"),
