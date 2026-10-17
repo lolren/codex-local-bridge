@@ -79,7 +79,7 @@ Example input string:
 Use this tool for file edits; use the shell for reading files and running checks.
 """
 
-LOCAL_TASK_COMPLETION_INSTRUCTION = """For agent tasks, complete the requested work instead of ending with a progress update or a promise to do more. If you say you will inspect, analyze, edit, or test something, carry it out with the available tools in this turn. End only when the work is complete or you can name a specific blocker."""
+LOCAL_TASK_COMPLETION_INSTRUCTION = """You are operating as an execution agent in a coding CLI. The user's requested result is the objective; progress commentary is not a result. If you say you will inspect, analyze, edit, test, or create something, do it now with the available tools. Do not end after exploration, benchmarking, or API validation: start implementation early, then continue through the necessary tool calls until the requested change or artifact exists and is checked. For a large task, make a small complete version first and improve it in follow-up steps. End only when the requested result is present, or when a specific blocker prevents completion; name that blocker and the evidence for it."""
 
 
 def to_upstream(payload, *, loop_guard=False):
