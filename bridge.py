@@ -130,6 +130,29 @@ def to_upstream(payload, *, loop_guard=False):
     return payload, custom_names
 
 
+def _chat_image_part(part):
+    """Convert a Responses/Anthropic image part to the Chat Completions form used by Strata."""
+    kind = part.get("type")
+    detail = part.get("detail")
+    source = part.get("image_url")
+    if isinstance(source, dict):
+        detail = detail or source.get("detail")
+        source = source.get("url")
+    if kind == "image":
+        source = part.get("source") or {}
+        if isinstance(source, dict):
+            if source.get("type") == "base64":
+                source = f"data:{source.get('media_type', 'image/png')};base64,{source.get('data', '')}"
+            else:
+                source = source.get("url") or source.get("path") or ""
+    if not isinstance(source, str) or not source:
+        raise ValueError("Responses image content part has no usable image URL")
+    image_url = {"url": source}
+    if detail in ("auto", "low", "high"):
+        image_url["detail"] = detail
+    return {"type": "image_url", "image_url": image_url}
+
+
 def _chat_content(content):
     if content is None:
         return ""
@@ -137,18 +160,28 @@ def _chat_content(content):
         return content
     if not isinstance(content, list):
         raise ValueError("message content must be text")
-    parts = []
+    parts, text_parts, has_image = [], [], False
     for part in content:
+        if isinstance(part, str):
+            text_parts.append(part)
+            parts.append({"type": "text", "text": part})
+            continue
         if not isinstance(part, dict):
             raise ValueError("message content block must be an object")
         kind = part.get("type")
         if kind in ("input_text", "output_text", "text", "refusal"):
             text = part.get("text", "")
             if text:
-                parts.append(text)
-        elif kind in ("input_image", "image_url"):
-            raise ValueError("the configured local model is text-only")
-    return "".join(parts)
+                text_parts.append(text)
+                parts.append({"type": "text", "text": text})
+        elif kind in ("input_image", "image_url", "image"):
+            parts.append(_chat_image_part(part))
+            has_image = True
+        # Other Responses content types (audio, files, citations, etc.) were
+        # previously ignored by this text adapter and remain outside its scope.
+    # Keep text-only requests byte-for-byte compatible; vision-capable backends need
+    # structured parts so image data is encoded as an image instead of being quoted.
+    return parts if has_image else "".join(text_parts)
 
 
 def _chat_tools(tools):
@@ -208,7 +241,9 @@ def _responses_input_to_chat(value):
         elif kind == "function_call_output":
             flush_calls()
             output = item.get("output", "")
-            if not isinstance(output, str):
+            if isinstance(output, list):
+                output = _chat_content(output)
+            elif not isinstance(output, str):
                 output = json.dumps(output, ensure_ascii=False)
             messages.append({"role": "tool", "tool_call_id": item["call_id"], "content": output})
         elif kind in ("reasoning", "summary"):
@@ -221,7 +256,7 @@ def _responses_input_to_chat(value):
 
 
 def responses_to_chat(payload, *, loop_guard=False, previous_messages=None):
-    """Convert a Codex Responses request to a text-only Chat Completions request."""
+    """Convert a Codex Responses request to Chat Completions, preserving image parts."""
     converted, custom_names = to_upstream(payload, loop_guard=loop_guard)
     messages = []
     if previous_messages:
@@ -613,6 +648,18 @@ class ChatStreamTranslator:
                 "function": {"name": state["name"], "arguments": state["arguments"] or "{}"},
             } for state in self.tool_calls.values()]
         return message
+
+
+def failed_response_event(response_stream, code, message, sequence):
+    """Finish a Responses stream with a protocol-level failure instead of a bare SSE error."""
+    response = copy.deepcopy(response_stream.response)
+    response["status"] = "failed"
+    response["error"] = {"code": code, "message": message}
+    response["incomplete_details"] = None
+    for item in response.get("output", []):
+        if item.get("status") == "in_progress":
+            item["status"] = "incomplete"
+    return {"type": "response.failed", "response": response, "sequence_number": sequence}
 
 
 def resolve_dashboard_model(directory, default_port, bridge_port):
@@ -1027,19 +1074,22 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 content_type = exc.headers.get("Content-Type", "application/json")
             if streaming:
                 message = f"The local model returned HTTP {exc.code}."
+                error_code = "local_model_http_error"
                 try:
                     payload = json.loads(body)
                     upstream_error = payload.get("error") if isinstance(payload, dict) else None
                     detail = upstream_error.get("message") if isinstance(upstream_error, dict) else None
+                    upstream_code = (upstream_error.get("code") or upstream_error.get("type")
+                                     if isinstance(upstream_error, dict) else None)
                     if isinstance(detail, str) and detail.strip():
                         message = " ".join(detail.split())[:500]
+                    if isinstance(upstream_code, str) and upstream_code.strip():
+                        error_code = upstream_code
                 except (ValueError, TypeError, AttributeError):
                     pass
+                LOG.warning("model HTTP error: status=%s code=%s", exc.code, error_code)
                 try:
-                    self.send_event({
-                        "type": "error", "code": "local_model_http_error", "message": message,
-                        "param": None, "sequence_number": sequence,
-                    })
+                    self.send_stream_failure(response_stream, error_code, message, sequence)
                 except (BrokenPipeError, ConnectionResetError):
                     LOG.info("client disconnected after upstream HTTP error")
             else:
@@ -1051,10 +1101,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
             error = {"type": exc.code, "code": exc.code, "message": exc.public_message}
             try:
                 if streaming:
-                    self.send_event({
-                        "type": "error", "code": exc.code, "message": exc.public_message, "param": None,
-                        "sequence_number": sequence,
-                    })
+                    self.send_stream_failure(response_stream, exc.code, exc.public_message, sequence)
                 else:
                     self.send_body(502, json.dumps({"error": error}).encode())
             except (BrokenPipeError, ConnectionResetError):
@@ -1065,8 +1112,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
             error = {"type": "local_bridge_error", "code": "local_bridge_error", "message": message}
             try:
                 if streaming:
-                    self.send_event({"type": "error", "code": "local_bridge_error",
-                                     "message": message, "param": None, "sequence_number": sequence})
+                    self.send_stream_failure(response_stream, "local_bridge_error", message, sequence)
                 else:
                     self.send_body(502, json.dumps({"error": error}).encode())
             except (BrokenPipeError, ConnectionResetError):
@@ -1075,6 +1121,16 @@ class BridgeHandler(BaseHTTPRequestHandler):
     def send_event(self, event):
         frame = "event: " + event["type"] + "\ndata: " + json.dumps(event, ensure_ascii=False) + "\n\n"
         self.wfile.write(frame.encode("utf-8"))
+        self.wfile.flush()
+
+    def send_stream_failure(self, response_stream, code, message, sequence):
+        if response_stream is not None:
+            event = failed_response_event(response_stream, code, message, sequence)
+        else:
+            event = {"type": "error", "code": code, "message": message,
+                     "param": None, "sequence_number": sequence}
+        self.send_event(event)
+        self.wfile.write(b"data: [DONE]\n\n")
         self.wfile.flush()
 
 
