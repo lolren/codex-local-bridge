@@ -65,6 +65,9 @@ In the repository directory, keep this process running in a terminal:
 python3 bridge.py --upstream "$LOCAL_LLM_URL" --port 18081
 ```
 
+Keep `loop_guard.py` next to `bridge.py` if copying the adapter elsewhere.
+Append `--loop-guard` to enable the optional [tool-loop safeguards](loop-prevention.md).
+
 The URL may include `/v1`; the bridge normalizes it. In a second terminal:
 
 ```bash

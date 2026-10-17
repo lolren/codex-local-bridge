@@ -77,12 +77,14 @@ def build_files(args, paths, codex, instance_id):
         "context_window": args.context_window, "instance_id": instance_id, "codex": str(codex),
         "python": sys.executable, "data_dir": str(data), "codex_home": str(home),
         "systemd": args.systemd, "unit": paths["unit"].name, "api_key_env": args.api_key_env,
+        "loop_guard": args.loop_guard, "upstream_api": args.upstream_api,
+        "model_panel_dir": str(Path(args.model_panel_dir).expanduser().resolve()) if args.model_panel_dir else None,
+        "model_alias": args.model, "default_model_port": args.default_model_port,
     }
     config = f'''model = {toml_string(args.model)}
 model_provider = "local-bridge"
 model_context_window = {args.context_window}
 model_catalog_json = {toml_string(home / 'models.json')}
-model_supports_reasoning_summaries = false
 approval_policy = "on-request"
 sandbox_mode = "workspace-write"
 
@@ -108,7 +110,14 @@ from launcher import main
 main({str(data / 'installation.json')!r})
 '''
     command = " ".join(unit_quote(x) for x in [sys.executable, "-u", data / "bridge.py",
-        "--upstream", settings["upstream"], "--port", args.port, "--instance-id", instance_id])
+        "--upstream", settings["upstream"], "--upstream-api", settings["upstream_api"],
+        "--port", args.port, "--instance-id", instance_id])
+    if settings["model_panel_dir"]:
+        command += " --model-panel-dir " + unit_quote(settings["model_panel_dir"])
+        command += " --model-alias " + unit_quote(settings["model_alias"])
+        command += " --default-model-port " + unit_quote(settings["default_model_port"])
+    if args.loop_guard:
+        command += " --loop-guard"
     service = f'''[Unit]
 Description=Codex local model native tool adapter
 After=network.target
@@ -129,6 +138,7 @@ WantedBy=default.target
         home / "models.json": (json.dumps(model_catalog(args.model, args.context_window, args.reasoning_effort), indent=2) + "\n", 0o600),
         data / "installation.json": (json.dumps(settings, indent=2) + "\n", 0o600),
         data / "bridge.py": ((SOURCE / "bridge.py").read_text(), 0o600),
+        data / "loop_guard.py": ((SOURCE / "loop_guard.py").read_text(), 0o600),
         data / "launcher.py": ((SOURCE / "launcher.py").read_text(), 0o600),
         paths["bin"]: (launcher, 0o755),
     }
@@ -139,7 +149,12 @@ WantedBy=default.target
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--upstream", required=True, help="Responses-capable server root or /v1 URL")
+    parser.add_argument("--upstream", required=True, help="Server root or /v1 URL")
+    parser.add_argument("--upstream-api", choices=("responses", "chat-completions"), default="responses",
+                        help="Upstream protocol; Codex itself uses the Responses API")
+    parser.add_argument("--model-panel-dir", help="Route requests to the selected dashboard model")
+    parser.add_argument("--default-model-port", type=int, default=8081,
+                        help="Dashboard's fallback API port for profiles without api_port")
     parser.add_argument("--model", required=True, help="Exact model id from GET /v1/models")
     parser.add_argument("--context-window", type=int, default=32768)
     parser.add_argument("--reasoning-effort", help="Only set a value your server supports")
@@ -149,11 +164,14 @@ def parse_args(argv=None):
     parser.add_argument("--prefix", help="Keep all generated files under this directory")
     parser.add_argument("--name", default="codex-local", help="Launcher name")
     parser.add_argument("--systemd", action="store_true", help="Enable a Linux user service at login")
+    parser.add_argument("--loop-guard", action="store_true", help="Detect unchanged repeated tool calls")
     parser.add_argument("--force", action="store_true", help="Back up and replace existing generated files")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
     if args.context_window < 1024 or not 1 <= args.port <= 65535:
         parser.error("context window must be >=1024 and port must be 1..65535")
+    if not 1 <= args.default_model_port <= 65535:
+        parser.error("default model port must be 1..65535")
     if not re.fullmatch(r"[A-Za-z0-9_-]+", args.name):
         parser.error("launcher name may contain letters, numbers, hyphens, and underscores")
     if args.api_key_env and not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", args.api_key_env):

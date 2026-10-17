@@ -18,7 +18,7 @@ First verify model discovery directly:
 curl -fsS http://127.0.0.1:8000/v1/models
 ```
 
-Model discovery alone is insufficient. The smoke test checks an actual multi-step tool session. A successful chat response from `/v1/chat/completions` does not establish Responses compatibility.
+Model discovery alone is insufficient. For a Responses backend, the smoke test checks an actual multi-step tool session. A Chat Completions-only backend can instead use the bridge's `--upstream-api chat-completions` adapter, which translates text and function calls and synthesizes the Responses stream Codex expects. It currently supports text-only model input.
 
 ## vLLM
 
@@ -75,7 +75,8 @@ The installer omits an explicit reasoning effort by default. If your backend req
 ## Other servers and tools
 
 - **Other Responses servers:** expected to work only if they satisfy the table above; run the smoke test. This project does not claim broad model certification.
-- **Chat Completions-only servers:** need a separate, compatible Responses implementation. This adapter does not supply one.
+- **Chat Completions-only servers:** select `--upstream-api chat-completions`. The bridge converts requests and tool calls, and buffers each full Chat Completions answer before returning a Codex-compatible Responses stream; token-by-token streaming is not available in this mode.
+- **Model-panel dashboards:** add `--model-panel-dir /path/to/model-panel` to follow the dashboard's selected model, route to its active API port, and expose a stable Codex model alias. Set the installer `--model` value to that alias (default bridge alias: `gpu_server_local`).
 - **Ollama and LM Studio:** Codex has its own `--oss --local-provider` route for those providers. That is a separate setup; do not mix it with this custom provider. Check [official configuration documentation](https://developers.openai.com/codex/config-advanced) for your CLI version.
 - **MCP tools:** configure them in this installation's isolated Codex home, if needed. Existing `~/.codex` MCP configuration is not automatically copied. This adapter leaves ordinary function tools intact, but the local model still needs to understand their schemas.
 - **Hosted tools:** the adapter does not provide web-search services, image generation, or computer-use services. Model capabilities and external integrations must be supplied separately.

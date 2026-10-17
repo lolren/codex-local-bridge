@@ -45,6 +45,15 @@ else:
         with contextlib.redirect_stdout(io.StringIO()):
             install.main(self.args + list(extra))
 
+    def test_loop_guard_is_installed_and_started_when_selected(self):
+        self.run_install(["--loop-guard"])
+        settings = json.loads((self.paths["data"] / "installation.json").read_text())
+        self.assertTrue(settings["loop_guard"])
+        self.assertTrue((self.paths["data"] / "loop_guard.py").is_file())
+        self.running = settings
+        ensure_running(settings)
+        self.assertTrue(health(settings)["loop_guard"])
+
     def test_configuration_and_permissions(self):
         self.run_install(["--api-key-env", "LOCAL_LLM_API_KEY", "--context-window", "262144"])
         config = tomllib.loads((self.paths["home"] / "config.toml").read_text())

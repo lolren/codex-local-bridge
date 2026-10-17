@@ -112,6 +112,19 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(self.request("/unknown")[0], 404)
         self.assertEqual(self.upstream.seen, [])
 
+    def test_tool_loop_uses_nonretryable_error_without_upstream_generation(self):
+        from tests.test_loop_guard import history
+        self.bridge.loop_guard = True
+        payload = history(6)
+        payload["stream"] = True
+        status, body = self.request("/v1/responses", json.dumps(payload).encode())
+        self.assertEqual(status, 400)
+        self.assertEqual(json.loads(body)["error"]["code"], "local_tool_loop")
+        self.assertEqual(self.upstream.seen, [])
+        status, _ = self.request("/v1/responses", json.dumps(history(4)).encode())
+        self.assertEqual(status, 200)
+        self.assertEqual(self.upstream.seen[0][2]["repetition_penalty"], 1.1)
+
     def test_http_errors_preserved(self):
         self.upstream.reply = (401, "application/json", b'{"error":{"message":"Unauthorized"}}')
         self.assertEqual(self.request("/v1/models"), (401, self.upstream.reply[2]))

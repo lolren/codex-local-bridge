@@ -45,9 +45,17 @@ def ensure_running(config):
             if log.exists() and log.stat().st_size > 5 * 1024 * 1024:
                 log.replace(data / "bridge.log.1")
             with log.open("ab") as stream:
+                command = [config["python"], str(data / "bridge.py"), "--upstream", config["upstream"],
+                           "--upstream-api", config.get("upstream_api", "responses"),
+                           "--port", str(config["port"]), "--instance-id", config["instance_id"]]
+                if config.get("model_panel_dir"):
+                    command += ["--model-panel-dir", config["model_panel_dir"],
+                                "--model-alias", config.get("model_alias", config["model"]),
+                                "--default-model-port", str(config.get("default_model_port", 8081))]
+                if config.get("loop_guard"):
+                    command.append("--loop-guard")
                 process = subprocess.Popen(
-                    [config["python"], str(data / "bridge.py"), "--upstream", config["upstream"],
-                     "--port", str(config["port"]), "--instance-id", config["instance_id"]],
+                    command,
                     stdin=subprocess.DEVNULL, stdout=stream, stderr=stream,
                     start_new_session=True, close_fds=True,
                 )

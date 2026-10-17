@@ -6,6 +6,7 @@
 | --- | --- |
 | `~/.local/bin/codex-local` | Executable launcher |
 | `~/.local/share/codex-local-bridge/bridge.py` | Installed adapter |
+| `~/.local/share/codex-local-bridge/loop_guard.py` | Optional tool-loop detection implementation |
 | `~/.local/share/codex-local-bridge/launcher.py` | Startup and routing implementation |
 | `~/.local/share/codex-local-bridge/installation.json` | Installation metadata; no API key values |
 | `~/.codex-local/config.toml` | Base local provider and permissions |
@@ -83,6 +84,7 @@ Remove the generated launcher and installed implementation files:
 ```bash
 rm "$HOME/.local/bin/codex-local"
 rm "$HOME/.local/share/codex-local-bridge/bridge.py"
+rm "$HOME/.local/share/codex-local-bridge/loop_guard.py"
 rm "$HOME/.local/share/codex-local-bridge/launcher.py"
 rm "$HOME/.local/share/codex-local-bridge/installation.json"
 ```

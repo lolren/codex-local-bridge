@@ -21,7 +21,7 @@ This is an independent community project, not an official OpenAI or vLLM release
 ## Requirements and compatibility
 
 - Linux, macOS, or WSL; **Python 3.11+**, Git, and Codex CLI. No Python packages are required.
-- A server implementing **`POST /v1/responses` with streaming function calls** and `GET /v1/models`. An OpenAI-compatible **Chat Completions-only** endpoint is insufficient.
+- A server implementing `GET /v1/models` and either `POST /v1/responses` or `POST /v1/chat/completions`. Chat Completions backends can be selected with `--upstream-api chat-completions`; the bridge translates Codex requests and synthesizes its Responses stream after each full backend reply.
 - A model and server chat template/parser that actually support tool calling.
 
 The verified CLI baseline is **Codex 0.157.1**. The live integration was tested with vLLM serving [Qwen3.8-Flash-Next-W4A16-FP8PLE](https://huggingface.co/albucino/Qwen3.8-Flash-Next-W4A16-FP8PLE). Other Responses-compatible models may work; run the smoke test before relying on them. See [compatibility and test evidence](docs/compatibility.md).
@@ -91,6 +91,8 @@ The second command uses your model on a temporary project. It checks completed n
 | Option | Purpose |
 | --- | --- |
 | `--upstream URL` | Server root or `/v1` URL; remote servers are supported |
+| `--upstream-api` | `responses` (default) or `chat-completions` |
+| `--model-panel-dir` | Follow the selected model in the local model-panel dashboard and expose its stable model alias |
 | `--model ID` | Exact served model ID |
 | `--context-window N` | Codex context budget; must not exceed the server's limit |
 | `--reasoning-effort VALUE` | Optional server-supported reasoning effort |
@@ -100,10 +102,13 @@ The second command uses your model on a temporary project. It checks completed n
 | `--prefix /path/to/install` | Put launcher, adapter, and Codex settings under one directory |
 | `--name codex-other` | Change the launcher filename; use a separate prefix and port for another installation |
 | `--systemd` | Linux: install and enable a user service at login instead of starting a background process on demand |
+| `--loop-guard` | Detect unchanged repeated tool calls, attempt recovery after four cycles, and stop after six |
 | `--dry-run` | Show planned file destinations without writing them |
 | `--force` | Back up and replace existing generated files |
 
 For authenticated servers, export the named variable before launching Codex; the token is not written into generated configuration. `--systemd` uses default per-user paths and cannot be combined with `--prefix`.
+
+For Qwen/Orca under Strata, see [loop prevention and thinking modes](docs/loop-prevention.md).
 
 ```bash
 codex-local --bridge-status

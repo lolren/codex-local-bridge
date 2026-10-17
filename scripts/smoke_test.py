@@ -22,10 +22,12 @@ class CalculatorTests(unittest.TestCase):
 '''
 
 PROMPT = (
-    "Fix calculator.py so add(a, b) returns the sum, create README.md with a short "
-    "description and the test command, and delete obsolete.txt. Inspect the files "
-    "first, leave test_calculator.py unchanged, run the existing unit tests, and "
-    "report the result. Make the changes yourself."
+    "Inspect the files first. Use Codex's native apply_patch tool for every file "
+    "change: update calculator.py so add(a, b) returns the sum, add README.md "
+    "with a short description and test command, and delete obsolete.txt. Put all "
+    "three operations in the patch. Do not edit files with shell commands or "
+    "remove generated/cache directories. Leave test_calculator.py unchanged, "
+    "run `python3 -m unittest discover -v`, and report the result."
 )
 
 
